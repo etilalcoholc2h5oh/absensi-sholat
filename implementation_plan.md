@@ -5,7 +5,8 @@
 - Gunakan nama lokasi **MAN 1 Boyolali** saja pada seluruh tampilan, cuaca, GPS, Excel, dan PDF.
 - Jangan tampilkan nama Jalan Kates, Karanggede, atau alamat lama yang tidak terverifikasi.
 - Alamat laporan resmi: **MAN 1 Boyolali, Boyolali, Jawa Tengah**.
-- Hapus logo dekoratif dari area kanan atas/navbar; gunakan teks dan ikon navigasi seperlunya.
+- Pertahankan logo sekolah di kiri atas navbar, di sebelah nama MAN 1 Boyolali.
+- Jangan tampilkan logo atau ikon dekoratif tambahan di pojok kanan atas; sisi kanan hanya untuk navigasi dan notifikasi.
 - Semua emoji dihapus dari antarmuka.
 
 ## Perubahan UI/UX
@@ -13,10 +14,10 @@
 - Terapkan tema light dengan latar putih dan abu-abu sangat muda.
 - Gunakan teks yang lebih besar, kontras jelas, serta target sentuh minimal 44px.
 - Buat navbar responsif dan intuitif untuk siswa dan guru.
-- Pertahankan ikon Lucide yang fungsional, tanpa logo dekoratif.
+- Susun logo dan identitas madrasah di kiri, lalu navigasi di kanan.
+- Pertahankan ikon Lucide yang fungsional, tanpa logo dekoratif tambahan.
 - Susun form identitas dan kamera satu kolom di mobile, dua kolom di desktop.
 - Sederhanakan dashboard guru menjadi rekap, filter, statistik, bukti foto, Excel, dan PDF.
-- Sembunyikan konfigurasi teknis Supabase/GPS dan SQL dari pengguna umum.
 - Hilangkan tab Vanilla Code.
 - Hilangkan teks instruksi dual camera yang berlebihan, tetapi pertahankan fitur dual camera.
 
@@ -48,5 +49,5 @@
 - Uji tampilan mobile, tablet, dan desktop.
 - Uji login PIN `3103` dan pastikan `admin` ditolak.
 - Pastikan nama Jalan Kates dan Karanggede tidak muncul pada UI, Excel, PDF, atau data madrasah.
-- Pastikan logo dekoratif di area kanan atas tidak muncul.
+- Pastikan logo sekolah tampil di kiri atas dan tidak ada logo tambahan di kanan atas.
 - Pastikan fitur dual camera dan snapshot tetap berfungsi.
