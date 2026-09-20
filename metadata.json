@@ -1,0 +1,6 @@
+{
+  "name": "Presensi Sholat Siswa MAN 1 Boyolali",
+  "description": "Aplikasi Web Presensi Sholat Siswa dengan AI Bounding Box Real-time (COCO-SSD), Geofencing GPS, Integrasi Supabase, dan Dashboard Guru/Admin",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

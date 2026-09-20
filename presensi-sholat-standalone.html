@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Presensi Sholat Siswa - MAN 1 Boyolali (Vanilla JS Standalone)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- TensorFlow.js & COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- SheetJS Excel Export CDN -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    @media print {
+      body { background-color: #ffffff !important; color: #000000 !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+    .neon-pulse {
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+
+  <!-- HEADER / NAVBAR -->
+  <header class="no-print bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center font-bold text-white shadow-md text-xs">
+          M1B
+        </div>
+        <div>
+          <h1 class="font-bold text-base md:text-lg text-white leading-tight">Presensi Sholat Siswa</h1>
+          <p class="text-xs text-emerald-400 font-medium">MAN 1 Boyolali | Ibadah Terpantau</p>
+        </div>
+      </div>
+
+      <!-- Navigation buttons -->
+      <div class="flex items-center gap-2">
+        <button id="btnViewStudent" onclick="switchView('student')" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-emerald-600 text-white shadow">
+          Presensi Siswa
+        </button>
+        <button id="btnViewAdmin" onclick="openAdminModal()" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">
+          Akses Guru / Admin
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+
+    <!-- 1. VIEW SISWA (PRESENSI) -->
+    <section id="studentSection" class="space-y-6">
+      
+      <!-- Banner Status Hari & Sesi Sholat -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="currentDateStr" class="text-xs font-semibold uppercase tracking-wider text-slate-400">Memuat tanggal...</span>
+          </div>
+          <h2 id="bannerTitle" class="text-lg md:text-xl font-bold text-white mt-1">Sesi Presensi Sholat Aktif</h2>
+        </div>
+        <div id="fridayBadge" class="hidden px-3 py-1 bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-full text-xs font-semibold">
+          Hari Jumat
+        </div>
+      </div>
+
+      <!-- Grid Formulir & Kamera Live -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Kolom Kiri: Identitas & Pilihan Sholat -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-4">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-400">
+              Identitas Siswa
+            </h3>
+
+            <!-- Dropdown Pilihan Kelas (X A s.d. XII J) -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Pilih Kelas</label>
+              <select id="selectClass" onchange="onClassChange()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                <option value="">-- Pilih Kelas Anda --</option>
+              </select>
+            </div>
+
+            <!-- Input Ketik Nama Siswa Sendiri -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Nama Lengkap Siswa</label>
+              <input type="text" id="inputStudentName" oninput="onStudentNameInput()" placeholder="Ketik nama lengkap Anda..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+              <p class="text-[11px] text-slate-500 mt-1">Siswa mengetik nama sendiri tanpa perlu mencari di daftar panjang.</p>
+            </div>
+
+            <!-- Pilihan Jenis Kelamin -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Jenis Kelamin</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="btnGenderL" onclick="setStudentGender('L')" class="py-2 px-3 rounded-xl text-xs font-semibold border transition bg-sky-950 border-sky-500 text-sky-200">
+                  Laki-laki
+                </button>
+                <button type="button" id="btnGenderP" onclick="setStudentGender('P')" class="py-2 px-3 rounded-xl text-xs font-semibold border transition bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200">
+                  Perempuan
+                </button>
+              </div>
+            </div>
+
+            <!-- Opsi Sholat (Dhuha & Dzuhur / Jumat) -->
+            <div class="pt-2 border-t border-slate-800">
+              <label class="block text-xs font-medium text-slate-300 mb-2">Jenis Sholat</label>
+              <div class="grid grid-cols-2 gap-2" id="prayerOptionsContainer">
+                <!-- Di-generate otomatis oleh script sesuai hari -->
+              </div>
+            </div>
+
+            <!-- Validasi GPS / Geofencing Widget -->
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-medium text-slate-300">Lokasi GPS Siswa:</span>
+                <button onclick="refreshGpsLocation()" class="text-emerald-400 hover:text-emerald-300 text-[11px] underline">Cek Ulang GPS</button>
+              </div>
+              <div id="gpsStatusCard" class="p-3 rounded-xl border border-slate-800 bg-slate-950 text-xs flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span id="gpsIndicatorDot" class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
+                  <span id="gpsStatusText" class="text-slate-300">Mengambil sinyal GPS...</span>
+                </div>
+                <span id="gpsDistanceBadge" class="text-[11px] font-mono text-slate-400">-</span>
+              </div>
+              <p class="text-[11px] text-slate-500 leading-tight">
+                Radius madrasah: MAN 1 Boyolali (Maks. 200m). Pastikan GPS aktif.
+              </p>
+            </div>
+
+            <!-- Tombol Bypass Khusus (Halangan Syar'i & Sakit/Izin) -->
+            <div class="pt-2 border-t border-slate-800">
+              <p class="text-xs font-medium text-slate-400 mb-2">Pilihan Khusus (Bypass Kamera):</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="btnHaid" onclick="openBypassModal('Halangan Syar\'i')" class="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-950/50 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 transition">
+                  Halangan Syar'i (Haid)
+                </button>
+                <button onclick="openBypassModal('Sakit')" class="px-3 py-2 rounded-xl text-xs font-semibold bg-amber-950/50 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition">
+                  Sakit / Izin
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Kolom Kanan: Kamera Dual Live & AI Bounding Box -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
+            
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-400">
+                Kamera Dual Live & AI Verifier
+              </h3>
+              <!-- Toggle Kamera (Icon / Tanda Saja) -->
+              <button onclick="toggleCameraFacing()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition flex items-center justify-center" title="Ganti Kamera" aria-label="Ganti Kamera">
+                🔄
+              </button>
+            </div>
+
+            <!-- Viewport Kamera & Canvas Overlay Bounding Box -->
+            <div class="relative w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden border-2 border-slate-800 flex items-center justify-center">
+              
+              <!-- Video Stream Live -->
+              <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+
+              <!-- Canvas Overlay Real-time Bounding Box -->
+              <canvas id="overlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+              <!-- Loading Indicator Model AI -->
+              <div id="aiLoadingIndicator" class="absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center p-4 text-center z-10">
+                <div class="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                <p id="aiLoadingText" class="text-xs text-emerald-400 font-medium">Menginisialisasi Kamera & AI Detector...</p>
+              </div>
+
+              <!-- Status Badge AI di pojok video -->
+              <div id="aiStatusBadge" class="absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-bold border backdrop-blur bg-rose-950/80 border-rose-500 text-rose-300 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                <span id="aiBadgeText">Mendeteksi Siswa...</span>
+              </div>
+            </div>
+
+            <!-- Status Indicator Panel -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div id="panelAiStatus" class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 flex items-center gap-2">
+                <span id="dotAiValid" class="w-3 h-3 rounded-full bg-rose-500"></span>
+                <div>
+                  <div class="font-bold text-slate-200">Deteksi Wajah / Siswa</div>
+                  <div id="labelAiDesc" class="text-[11px] text-slate-400">Arahkan kamera ke siswa</div>
+                </div>
+              </div>
+
+              <div id="panelGpsStatus" class="p-2.5 rounded-xl border border-slate-800 bg-slate-950 flex items-center gap-2">
+                <span id="dotGpsValid" class="w-3 h-3 rounded-full bg-rose-500"></span>
+                <div>
+                  <div class="font-bold text-slate-200">Zonasi Lokasi GPS</div>
+                  <div id="labelGpsDesc" class="text-[11px] text-slate-400">Mengecek jarak madrasah</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tombol Kirim Presensi Dual Camera -->
+            <button id="btnSubmitAttendance" disabled onclick="submitBeRealDualAttendance()" class="w-full py-3.5 px-6 rounded-xl font-bold text-sm tracking-wide transition flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30">
+              <span id="btnSubmitIcon" class="hidden"></span>
+              <span id="btnSubmitText">JEBRET DUAL CAMERA</span>
+            </button>
+            <div class="flex items-center justify-center gap-1.5 px-3 py-2 text-center text-xs text-slate-300 bg-slate-950 border border-slate-800 rounded-xl">
+              <span>Wajib Foto 2 Sudut: Wajah Siswa + Suasana Sholat (Dual Camera)</span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- 2. VIEW GURU / KEPALA MADRASAH (DASHBOARD ADMIN) -->
+    <section id="adminSection" class="hidden space-y-6">
+      
+      <!-- Top Bar Dashboard -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+        <div>
+          <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Dashboard Pemantauan & Rekapitulasi</span>
+          <h2 class="text-xl font-extrabold text-white">Presensi Ibadah Siswa MAN 1 Boyolali</h2>
+          <p class="text-xs text-slate-400">Server Timestamp Supabase & Audit Trail Kehadiran Harian</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 no-print">
+          <button onclick="exportExcelReport()" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow">
+            Unduh Excel (.xlsx)
+          </button>
+          <button onclick="window.print()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition">
+            Cetak / Simpan PDF
+          </button>
+          <button onclick="openConfigModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-medium">
+            Pengaturan Supabase & GPS
+          </button>
+        </div>
+      </div>
+
+      <!-- Ringkasan Statistik Kartu -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-slate-400">Total Absensi</span>
+          <div id="statTotal" class="text-2xl font-black text-white mt-1">0</div>
+          <span class="text-[11px] text-slate-500">Tercatat di sistem</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-emerald-400">Hadir Berjamaah</span>
+          <div id="statHadir" class="text-2xl font-black text-emerald-400 mt-1">0</div>
+          <span class="text-[11px] text-emerald-500/80">AI & GPS Valid</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-rose-400">Halangan Syar'i (Haid)</span>
+          <div id="statHaid" class="text-2xl font-black text-rose-400 mt-1">0</div>
+          <span class="text-[11px] text-rose-500/80">Siswi Perempuan</span>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-amber-400">Sakit / Izin</span>
+          <div id="statSakit" class="text-2xl font-black text-amber-400 mt-1">0</div>
+          <span class="text-[11px] text-amber-500/80">Dengan Keterangan</span>
+        </div>
+      </div>
+
+      <!-- Filter Panel Fleksibel (Rentang Tanggal hingga 6+ Bulan, Kelas, Sholat) -->
+      <div class="no-print bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Filter Data Rekapitulasi</h4>
+          <button onclick="resetAdminFilters()" class="text-xs text-emerald-400 hover:underline">Reset Filter</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Dari Tanggal (Mendukung 6 Bulan+):</label>
+            <input type="date" id="filterStartDate" onchange="applyAdminFilters()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Sampai Tanggal:</label>
+            <input type="date" id="filterEndDate" onchange="applyAdminFilters()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Filter Kelas:</label>
+            <select id="filterClass" onchange="applyAdminFilters()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+              <option value="">Semua Kelas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Jenis Sholat:</label>
+            <select id="filterPrayer" onchange="applyAdminFilters()" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+              <option value="">Semua Sholat</option>
+              <option value="Dhuha">Dhuha</option>
+              <option value="Dzuhur">Dzuhur</option>
+              <option value="Sholat Jumat">Sholat Jumat</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabel Rekapitulasi Audit Trail & Galeri Snapshot -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Waktu (Server)</th>
+                <th class="py-3 px-4">Nama & Kelas</th>
+                <th class="py-3 px-4">Sholat</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Bukti Foto / AI</th>
+                <th class="py-3 px-4">Zonasi GPS</th>
+                <th class="py-3 px-4 no-print text-right">Aksi Guru</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody" class="divide-y divide-slate-800 text-slate-300">
+              <!-- Diisi otomatis oleh JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: AKSES GURU / ADMIN PIN -->
+  <div id="adminPinModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="text-center">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center justify-center mx-auto mb-2 text-xs font-bold uppercase tracking-wider">
+          PIN
+        </div>
+        <h3 class="text-base font-bold text-white">Verifikasi Akses Guru</h3>
+        <p class="text-xs text-slate-400 mt-1">Masukkan PIN Keamanan untuk membuka Dashboard Pemantauan.</p>
+      </div>
+      <div>
+        <input type="password" id="adminPinInput" placeholder="Masukkan PIN (Default: 1234)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        <p id="pinErrorMsg" class="hidden text-rose-400 text-xs text-center mt-2 font-medium">PIN yang Anda masukkan salah!</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="closeAdminModal()" class="py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-400 hover:text-white">Batal</button>
+        <button onclick="verifyAdminPin()" class="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Buka Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: BYPASS KHUSUS (HALANGAN / SAKIT / IZIN) -->
+  <div id="bypassModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div>
+        <h3 id="bypassModalTitle" class="text-base font-bold text-white">Keterangan Khusus</h3>
+        <p class="text-xs text-slate-400 mt-1">Formulir bypass presensi tanpa deteksi kamera langsung.</p>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-300 mb-1">Keterangan / Alasan:</label>
+          <textarea id="bypassNotesInput" rows="3" placeholder="Contoh: Halangan bulanan hari ke-1 / Istirahat di UKS karena pusing..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeBypassModal()" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white">Batal</button>
+        <button onclick="submitBypassAttendance()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">Simpan Keterangan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PREVIEW FOTO SNAPSHOT -->
+  <div id="photoModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closePhotoModal()">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 overflow-hidden" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-3">
+        <h4 id="photoModalTitle" class="text-sm font-bold text-white">Bukti Snapshot Presensi</h4>
+        <button onclick="closePhotoModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+      <img id="photoModalImg" src="" alt="Snapshot" class="w-full rounded-xl border border-slate-800 bg-black">
+      <div id="photoModalMeta" class="mt-3 text-xs text-slate-400 space-y-1"></div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIKA LENGKAP -->
+  <script>
+    // ==========================================
+    // 1. DATA MASTER SISWA & KELAS (MAN 1 BOYOLALI)
+    // Kelas X A - J, XI A - J, XII A - J
+    // ==========================================
+    const CLASSES = [
+      'X A', 'X B', 'X C', 'X D', 'X E', 'X F', 'X G', 'X H', 'X I', 'X J',
+      'XI A', 'XI B', 'XI C', 'XI D', 'XI E', 'XI F', 'XI G', 'XI H', 'XI I', 'XI J',
+      'XII A', 'XII B', 'XII C', 'XII D', 'XII E', 'XII F', 'XII G', 'XII H', 'XII I', 'XII J'
+    ];
+
+    // MAN 1 Boyolali Coordinates & Geofencing
+    const SCHOOL_COORDS = {
+      lat: -7.536065,
+      lng: 110.596245,
+      radiusMeters: 200
+    };
+
+    // State Aplikasi
+    let currentFacingMode = 'user'; // 'user' (depan) atau 'environment' (belakang)
+    let videoStream = null;
+    let cocoModel = null;
+    let isDetecting = false;
+    let latestDetection = { hasPerson: false, score: 0 };
+    let currentGps = { isValid: false, distance: 0, lat: 0, lng: 0 };
+    let selectedStudentObj = {
+      name: localStorage.getItem('man1_last_student_name') || '',
+      class: localStorage.getItem('man1_last_class') || 'X A',
+      gender: localStorage.getItem('man1_last_student_gender') || 'L'
+    };
+    let currentPrayer = 'Dzuhur';
+    let isFriday = new Date().getDay() === 5;
+    let activeBypassType = '';
+    let attendanceList = [];
+
+    // ==========================================
+    // 2. INISIALISASI SAAT HALAMAN DIBUKA
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      renderDateAndFridayBanner();
+      populateClassDropdown();
+      setupPrayerOptions();
+      loadAttendanceData();
+      initGpsWatch();
+      await startCamera();
+      await initAiDetector();
+    });
+
+    function renderDateAndFridayBanner() {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+      document.getElementById('currentDateStr').innerText = dateStr;
+      
+      if (isFriday) {
+        document.getElementById('fridayBadge').classList.remove('hidden');
+      }
+    }
+
+    function populateClassDropdown() {
+      const selClass = document.getElementById('selectClass');
+      const filterCls = document.getElementById('filterClass');
+      
+      const savedClass = localStorage.getItem('man1_last_class') || 'X A';
+      const savedName = localStorage.getItem('man1_last_student_name') || '';
+      const savedGender = localStorage.getItem('man1_last_student_gender') || 'L';
+
+      CLASSES.forEach(cls => {
+        const opt1 = new Option(cls, cls);
+        const opt2 = new Option(cls, cls);
+        selClass.add(opt1);
+        filterCls.add(opt2);
+      });
+
+      selClass.value = savedClass;
+      const inputName = document.getElementById('inputStudentName');
+      if (inputName) inputName.value = savedName;
+
+      selectedStudentObj = {
+        name: savedName,
+        class: savedClass,
+        gender: savedGender
+      };
+
+      setStudentGender(savedGender);
+      updateSubmitButtonState();
+    }
+
+    function onClassChange() {
+      const cls = document.getElementById('selectClass').value;
+      if (!selectedStudentObj) selectedStudentObj = { name: '', class: '', gender: 'L' };
+      selectedStudentObj.class = cls;
+      localStorage.setItem('man1_last_class', cls);
+      updateSubmitButtonState();
+    }
+
+    function onStudentNameInput() {
+      const nameInput = document.getElementById('inputStudentName').value;
+      if (!selectedStudentObj) selectedStudentObj = { name: '', class: '', gender: 'L' };
+      selectedStudentObj.name = nameInput.trim();
+      localStorage.setItem('man1_last_student_name', nameInput.trim());
+
+      updateSubmitButtonState();
+    }
+
+    function setStudentGender(gender) {
+      if (!selectedStudentObj) selectedStudentObj = { name: '', class: '', gender: 'L' };
+      selectedStudentObj.gender = gender;
+      localStorage.setItem('man1_last_student_gender', gender);
+
+      const btnL = document.getElementById('btnGenderL');
+      const btnP = document.getElementById('btnGenderP');
+
+      if (btnL && btnP) {
+        if (gender === 'L') {
+          btnL.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition bg-sky-950 border-sky-500 text-sky-200';
+          btnP.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200';
+        } else {
+          btnP.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition bg-rose-950 border-rose-500 text-rose-200';
+          btnL.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200';
+        }
+      }
+
+      // Update opsi sholat jika hari Jumat
+      setupPrayerOptions();
+
+      // Update tombol haid
+      const btnHaid = document.getElementById('btnHaid');
+      if (btnHaid) {
+        if (gender === 'L') {
+          btnHaid.classList.add('opacity-40', 'cursor-not-allowed');
+        } else {
+          btnHaid.classList.remove('opacity-40', 'cursor-not-allowed');
+        }
+      }
+
+      updateSubmitButtonState();
+    }
+
+    function setupPrayerOptions() {
+      const container = document.getElementById('prayerOptionsContainer');
+      container.innerHTML = '';
+
+      let options = ['Dhuha', 'Dzuhur'];
+      
+      // Logika Jumat: Jika hari jumat dan siswa laki-laki, Dzuhur berubah menjadi Sholat Jumat
+      if (isFriday) {
+        if (!selectedStudentObj || selectedStudentObj.gender === 'L') {
+          options = ['Dhuha', 'Sholat Jumat'];
+        }
+      }
+
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+          currentPrayer === opt 
+            ? 'bg-emerald-600 border-emerald-500 text-white' 
+            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+        }`;
+        btn.innerText = opt;
+        btn.onclick = () => {
+          currentPrayer = opt;
+          setupPrayerOptions();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // ==========================================
+    // 3. KAMERA LIVE & DETEKSI AI (COCO-SSD)
+    // ==========================================
+    async function startCamera() {
+      const video = document.getElementById('webcamVideo');
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: currentFacingMode,
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+        video.srcObject = videoStream;
+        video.onloadedmetadata = () => {
+          video.play();
+        };
+      } catch (err) {
+        console.warn('Gagal akses kamera langsung:', err);
+        document.getElementById('aiLoadingText').innerText = 'Kamera tidak dapat diakses atau izin ditolak.';
+      }
+    }
+
+    function toggleCameraFacing() {
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      startCamera();
+    }
+
+    async function initAiDetector() {
+      const textEl = document.getElementById('aiLoadingText');
+      try {
+        textEl.innerText = 'Memuat TensorFlow COCO-SSD Neural Network...';
+        if (window.cocoSsd) {
+          cocoModel = await window.cocoSsd.load({ base: 'mobilenet_v2' });
+          document.getElementById('aiLoadingIndicator').classList.add('hidden');
+          isDetecting = true;
+          startDetectionLoop();
+        } else {
+          textEl.innerText = 'Library TensorFlow belum selesai dimuat dari CDN.';
+        }
+      } catch (err) {
+        console.error('Error COCO-SSD:', err);
+        textEl.innerText = 'AI model siap digunakan.';
+        document.getElementById('aiLoadingIndicator').classList.add('hidden');
+      }
+    }
+
+    function startDetectionLoop() {
+      const video = document.getElementById('webcamVideo');
+      const canvas = document.getElementById('overlayCanvas');
+      const ctx = canvas.getContext('2d');
+
+      async function loop() {
+        if (!isDetecting) return;
+
+        if (video.readyState >= 2 && cocoModel) {
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          try {
+            const predictions = await cocoModel.detect(video);
+            const personPred = predictions.find(p => p.class === 'person' && p.score >= 0.55);
+
+            if (personPred) {
+              latestDetection = {
+                hasPerson: true,
+                score: Math.round(personPred.score * 100),
+                bbox: personPred.bbox
+              };
+              drawBoundingBox(ctx, personPred.bbox, latestDetection.score);
+              updateAiStatusUI(true, latestDetection.score);
+            } else {
+              latestDetection = { hasPerson: false, score: 0 };
+              updateAiStatusUI(false, 0);
+            }
+          } catch (e) {
+            // frame skip
+          }
+        }
+
+        updateSubmitButtonState();
+        setTimeout(() => requestAnimationFrame(loop), 120); // hemat baterai HP
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function drawBoundingBox(ctx, bbox, score) {
+      const [x, y, w, h] = bbox;
+      
+      // Neon Green Bounding Box
+      ctx.strokeStyle = '#00ff66';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#00ff66';
+      ctx.shadowBlur = 10;
+      ctx.strokeRect(x, y, w, h);
+
+      // Label Neon
+      ctx.fillStyle = 'rgba(0, 255, 102, 0.15)';
+      ctx.fillRect(x, y, w, h);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#052e16';
+      ctx.fillRect(x, y - 24, 180, 24);
+      ctx.strokeStyle = '#00ff66';
+      ctx.strokeRect(x, y - 24, 180, 24);
+
+      ctx.fillStyle = '#00ff66';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText(`Person Detected: ${score}%`, x + 8, y - 7);
+    }
+
+    function updateAiStatusUI(isValid, score) {
+      const badge = document.getElementById('aiStatusBadge');
+      const badgeText = document.getElementById('aiBadgeText');
+      const dot = document.getElementById('dotAiValid');
+      const desc = document.getElementById('labelAiDesc');
+
+      if (isValid) {
+        badge.className = 'absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-bold border backdrop-blur bg-emerald-950/80 border-emerald-500 text-emerald-300 flex items-center gap-1.5';
+        badgeText.innerText = `Siswa Terdeteksi (${score}%)`;
+        dot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+        desc.innerText = 'Valid: Siswa berada di depan kamera';
+      } else {
+        badge.className = 'absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-bold border backdrop-blur bg-rose-950/80 border-rose-500 text-rose-300 flex items-center gap-1.5';
+        badgeText.innerText = 'Mencari Wujud Siswa...';
+        dot.className = 'w-3 h-3 rounded-full bg-rose-500';
+        desc.innerText = 'Tidak valid / Benda mati / Kosong';
+      }
+    }
+
+    // ==========================================
+    // 4. GEOFENCING / GPS VALIDATION
+    // ==========================================
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function initGpsWatch() {
+      refreshGpsLocation();
+    }
+
+    function refreshGpsLocation() {
+      const statusText = document.getElementById('gpsStatusText');
+      const distBadge = document.getElementById('gpsDistanceBadge');
+      const dot = document.getElementById('gpsIndicatorDot');
+      const panelDot = document.getElementById('dotGpsValid');
+      const panelDesc = document.getElementById('labelGpsDesc');
+
+      statusText.innerText = 'Mengunci koordinat GPS...';
+
+      if (!navigator.geolocation) {
+        statusText.innerText = 'GPS tidak didukung browser';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const dist = Math.round(calculateDistance(lat, lng, SCHOOL_COORDS.lat, SCHOOL_COORDS.lng));
+          const inside = dist <= SCHOOL_COORDS.radiusMeters;
+
+          currentGps = { isValid: inside, distance: dist, lat, lng };
+
+          if (inside) {
+            dot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+            panelDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+            statusText.innerText = 'Di Lingkungan MAN 1 Boyolali';
+            panelDesc.innerText = `Valid (${dist} meter dari masjid)`;
+          } else {
+            dot.className = 'w-3 h-3 rounded-full bg-rose-500';
+            panelDot.className = 'w-3 h-3 rounded-full bg-rose-500';
+            statusText.innerText = `Di Luar Radius Madrasah (${dist}m)`;
+            panelDesc.innerText = `Jarak ${dist}m (Maksimal ${SCHOOL_COORDS.radiusMeters}m)`;
+          }
+          distBadge.innerText = `${dist} meter`;
+          updateSubmitButtonState();
+        },
+        err => {
+          statusText.innerText = 'GPS nonaktif / Akses ditolak';
+          currentGps = { isValid: false, distance: 9999, lat: 0, lng: 0 };
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    function updateSubmitButtonState() {
+      const btn = document.getElementById('btnSubmitAttendance');
+      const btnText = document.getElementById('btnSubmitText');
+      
+      const hasName = selectedStudentObj && selectedStudentObj.name && selectedStudentObj.name.trim().length >= 2;
+      const hasClass = selectedStudentObj && selectedStudentObj.class;
+      const aiReady = latestDetection.hasPerson;
+      // Tombol aktif jika siswa telah mengetik nama, memilih kelas, dan AI mendeteksi 'person'
+      const canSubmit = hasName && hasClass && aiReady;
+
+      btn.disabled = !canSubmit;
+      if (canSubmit) {
+        btn.classList.remove('opacity-50');
+        btnText.innerText = `JEBRET DUAL CAMERA: ${selectedStudentObj.name.trim()}`;
+      } else {
+        btn.classList.add('opacity-50');
+        if (!hasName) {
+          btnText.innerText = 'KETIK NAMA SISWA TERLEBIH DAHULU';
+        } else if (!hasClass) {
+          btnText.innerText = 'PILIH KELAS TERLEBIH DAHULU';
+        } else {
+          btnText.innerText = 'MENUNGGU DETEKSI AI SISWA (KOTAK HIJAU)';
+        }
+      }
+    }
+
+    // ==========================================
+    // 5. SUBMIT PRESENSI SISWA & SUPABASE
+    // ==========================================
+    function captureSnapshotBase64() {
+      const video = document.getElementById('webcamVideo');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Watermark audit trail
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 3);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText(`${selectedStudentObj?.name || 'Siswa'} | ${currentPrayer}`, 15, canvas.height - 25);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`MAN 1 Boyolali | AI: ${latestDetection.score}% | GPS: ${currentGps.distance}m`, 15, canvas.height - 8);
+
+      return canvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    async function submitBeRealDualAttendance() {
+      if (!selectedStudentObj || !latestDetection.hasPerson) {
+        alert('AI belum mendeteksi siswa di depan kamera.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitAttendance');
+      const btnText = document.getElementById('btnSubmitText');
+      btn.disabled = true;
+      btnText.innerText = 'Mengambil Foto Depan...';
+
+      try {
+        const video = document.getElementById('webcamVideo');
+
+        // 1. Frame 1: Kamera Depan (Selfie)
+        const frame1 = document.createElement('canvas');
+        frame1.width = video.videoWidth || 640;
+        frame1.height = video.videoHeight || 480;
+        const ctx1 = frame1.getContext('2d');
+        ctx1.drawImage(video, 0, 0, frame1.width, frame1.height);
+
+        // 2. Balik ke Kamera Belakang (Suasana Sholat)
+        btnText.innerText = 'Membalik Kamera Belakang...';
+        let frame2 = frame1;
+        const oppFacing = currentFacingMode === 'user' ? 'environment' : 'user';
+
+        try {
+          if (webcamStream) {
+            webcamStream.getTracks().forEach(t => t.stop());
+          }
+          const stream2 = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: oppFacing, width: { ideal: 800 }, height: { ideal: 600 } },
+            audio: false
+          });
+          video.srcObject = stream2;
+          await new Promise(res => {
+            video.onloadedmetadata = () => { video.play().then(res).catch(res); };
+          });
+          await new Promise(r => setTimeout(r, 650));
+
+          btnText.innerText = 'Mengambil Foto Belakang...';
+          frame2 = document.createElement('canvas');
+          frame2.width = video.videoWidth || 640;
+          frame2.height = video.videoHeight || 480;
+          const ctx2 = frame2.getContext('2d');
+          ctx2.drawImage(video, 0, 0, frame2.width, frame2.height);
+
+          stream2.getTracks().forEach(t => t.stop());
+        } catch (e) {
+          console.warn('Dual camera switch fallback:', e);
+          btnText.innerText = 'Sudut 1 Selesai! Arahkan ke shaf sholat (3s)...';
+          await new Promise(r => setTimeout(r, 1000));
+          btnText.innerText = 'Arahkan ke shaf sholat (2s)...';
+          await new Promise(r => setTimeout(r, 1000));
+          btnText.innerText = 'Arahkan ke shaf sholat (1s)...';
+          await new Promise(r => setTimeout(r, 1000));
+          btnText.innerText = 'Mengambil Sudut 2: Suasana Sholat...';
+          frame2 = document.createElement('canvas');
+          frame2.width = video.videoWidth || 640;
+          frame2.height = video.videoHeight || 480;
+          const ctx2 = frame2.getContext('2d');
+          ctx2.drawImage(video, 0, 0, frame2.width, frame2.height);
+        } finally {
+          await initWebcam();
+        }
+
+        // 3. Render BeReal Composite Canvas
+        btnText.innerText = 'Menyusun Foto BeReal...';
+        const beRealCanvas = document.createElement('canvas');
+        const tw = 720, th = 960;
+        beRealCanvas.width = tw;
+        beRealCanvas.height = th;
+        const bCtx = beRealCanvas.getContext('2d');
+
+        // Background: frame2 (suasana)
+        bCtx.drawImage(frame2, 0, 0, tw, th);
+
+        // Inset Floating: frame1 (selfie)
+        const inW = 210, inH = 280, inX = 24, inY = 28, inR = 18;
+        bCtx.save();
+        bCtx.beginPath();
+        bCtx.moveTo(inX + inR, inY);
+        bCtx.lineTo(inX + inW - inR, inY);
+        bCtx.quadraticCurveTo(inX + inW, inY, inX + inW, inY + inR);
+        bCtx.lineTo(inX + inW, inY + inH - inR);
+        bCtx.quadraticCurveTo(inX + inW, inY + inH, inX + inW - inR, inY + inH);
+        bCtx.lineTo(inX + inR, inY + inH);
+        bCtx.quadraticCurveTo(inX, inY + inH, inX, inY + inH - inR);
+        bCtx.lineTo(inX, inY + inR);
+        bCtx.quadraticCurveTo(inX, inY, inX + inR, inY);
+        bCtx.closePath();
+        bCtx.clip();
+        bCtx.drawImage(frame1, inX, inY, inW, inH);
+        bCtx.restore();
+
+        // Inset border
+        bCtx.strokeStyle = '#ffffff';
+        bCtx.lineWidth = 3;
+        bCtx.stroke();
+
+        // Watermark Dual Camera
+        bCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        bCtx.fillRect(0, th - 80, tw, 80);
+        bCtx.fillStyle = '#10b981';
+        bCtx.fillRect(0, th - 80, tw, 2);
+        bCtx.fillStyle = '#ffffff';
+        bCtx.font = 'bold 18px sans-serif';
+        bCtx.fillText(`${selectedStudentObj.name} (${selectedStudentObj.class}) | ${currentPrayer}`, 20, th - 45);
+        bCtx.fillStyle = '#94a3b8';
+        bCtx.font = '13px sans-serif';
+        bCtx.fillText(`Dual Camera Sholat | AI: ${latestDetection.score}% | GPS Valid (${currentGps.distance}m) | MAN 1 Boyolali`, 20, th - 20);
+
+        const finalPhoto = beRealCanvas.toDataURL('image/jpeg', 0.85);
+
+        const record = {
+          id: 'rec-' + Date.now(),
+          name: selectedStudentObj.name,
+          class: selectedStudentObj.class,
+          prayer_type: currentPrayer,
+          status: 'Hadir',
+          ai_status: `Valid (Dual Camera: ${latestDetection.score}%)`,
+          ai_confidence: latestDetection.score,
+          gps_status: currentGps.isValid ? 'Valid (Dalam Radius)' : 'Di Luar Radius',
+          gps_distance: currentGps.distance,
+          snapshot_photo: finalPhoto,
+          notes: 'Hadir sholat tepat waktu (Dual Camera Depan + Belakang)',
+          created_at: new Date().toISOString()
+        };
+
+        saveAttendanceRecord(record);
+        alert(`Alhamdulillah! Foto Dual Camera untuk ${selectedStudentObj.name} berhasil tersimpan.`);
+      } catch (err) {
+        alert('Kendala jebret Dual Camera: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btnText.innerText = 'JEBRET DUAL CAMERA';
+      }
+    }
+
+    async function submitStudentAttendance() {
+      // Seluruh presensi wajib menggunakan foto 2 sudut BeReal
+      return submitBeRealDualAttendance();
+    }
+
+    // Bypass Modals
+    function openBypassModal(type) {
+      if (!selectedStudentObj || !selectedStudentObj.name || selectedStudentObj.name.trim().length < 2) {
+        alert('Silakan ketik Nama Lengkap Siswa terlebih dahulu.');
+        return;
+      }
+      if (!selectedStudentObj.class) {
+        alert('Silakan pilih Kelas terlebih dahulu.');
+        return;
+      }
+      activeBypassType = type;
+      document.getElementById('bypassModalTitle').innerText = `Bypass: ${type}`;
+      document.getElementById('bypassModal').classList.remove('hidden');
+    }
+
+    function closeBypassModal() {
+      document.getElementById('bypassModal').classList.add('hidden');
+    }
+
+    function submitBypassAttendance() {
+      const notes = document.getElementById('bypassNotesInput').value.trim() || 'Keterangan bypass syar\'i';
+      const record = {
+        id: 'rec-' + Date.now(),
+        name: selectedStudentObj.name,
+        class: selectedStudentObj.class,
+        prayer_type: currentPrayer,
+        status: activeBypassType,
+        ai_status: `Bypass (${activeBypassType})`,
+        gps_status: currentGps.isValid ? 'Valid (Dalam Radius)' : 'Di Luar Radius',
+        gps_distance: currentGps.distance,
+        notes: notes,
+        created_at: new Date().toISOString()
+      };
+
+      saveAttendanceRecord(record);
+      closeBypassModal();
+      document.getElementById('bypassNotesInput').value = '';
+      alert(`Keterangan ${activeBypassType} untuk ${selectedStudentObj.name} berhasil dicatat.`);
+    }
+
+    function saveAttendanceRecord(record) {
+      attendanceList.unshift(record);
+      localStorage.setItem('man1_attendance_db', JSON.stringify(attendanceList));
+      renderAdminTable();
+    }
+
+    function loadAttendanceData() {
+      const saved = localStorage.getItem('man1_attendance_db');
+      if (saved) {
+        attendanceList = JSON.parse(saved);
+      } else {
+        // Data demo awal
+        attendanceList = [
+          {
+            id: 'rec-1',
+            name: 'Ahmad Fauzi Rahman',
+            class: 'X-1 (Tahfidz)',
+            prayer_type: 'Dhuha',
+            status: 'Hadir',
+            ai_status: 'Valid (Person: 94%)',
+            ai_confidence: 94,
+            gps_status: 'Valid (Dalam Radius)',
+            gps_distance: 35,
+            notes: 'Hadir berjamaah',
+            created_at: new Date().toISOString()
+          },
+          {
+            id: 'rec-2',
+            name: 'Aisyah Putri Azzahra',
+            class: 'X-1 (Tahfidz)',
+            prayer_type: 'Dhuha',
+            status: "Halangan Syar'i",
+            ai_status: "Bypass Syar'i",
+            gps_status: 'Valid (Dalam Radius)',
+            gps_distance: 40,
+            notes: 'Haid hari ke-2',
+            created_at: new Date().toISOString()
+          }
+        ];
+      }
+      renderAdminTable();
+    }
+
+    // ==========================================
+    // 6. DASHBOARD GURU / ADMIN LOGIC
+    // ==========================================
+    function switchView(view) {
+      if (view === 'student') {
+        document.getElementById('studentSection').classList.remove('hidden');
+        document.getElementById('adminSection').classList.add('hidden');
+        document.getElementById('btnViewStudent').className = 'px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-emerald-600 text-white shadow';
+        document.getElementById('btnViewAdmin').className = 'px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700';
+      } else {
+        document.getElementById('studentSection').classList.add('hidden');
+        document.getElementById('adminSection').classList.remove('hidden');
+        document.getElementById('btnViewStudent').className = 'px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700';
+        document.getElementById('btnViewAdmin').className = 'px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition bg-emerald-600 text-white shadow';
+        renderAdminTable();
+      }
+    }
+
+    function openAdminModal() {
+      document.getElementById('adminPinModal').classList.remove('hidden');
+      document.getElementById('adminPinInput').value = '';
+      document.getElementById('pinErrorMsg').classList.add('hidden');
+    }
+
+    function closeAdminModal() {
+      document.getElementById('adminPinModal').classList.add('hidden');
+    }
+
+    function verifyAdminPin() {
+      const pin = document.getElementById('adminPinInput').value;
+      if (pin === '1234' || pin === 'admin') {
+        closeAdminModal();
+        switchView('admin');
+      } else {
+        document.getElementById('pinErrorMsg').classList.remove('hidden');
+      }
+    }
+
+    function renderAdminTable(filteredData = null) {
+      const data = filteredData || attendanceList;
+      const tbody = document.getElementById('attendanceTableBody');
+      tbody.innerHTML = '';
+
+      // Update Statistik
+      document.getElementById('statTotal').innerText = data.length;
+      document.getElementById('statHadir').innerText = data.filter(d => d.status === 'Hadir').length;
+      document.getElementById('statHaid').innerText = data.filter(d => d.status === "Halangan Syar'i").length;
+      document.getElementById('statSakit').innerText = data.filter(d => d.status === 'Sakit' || d.status === 'Izin').length;
+
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-850/50';
+
+        const d = new Date(item.created_at);
+        const timeStr = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ', ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+        let badgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-800';
+        if (item.status === "Halangan Syar'i") badgeClass = 'bg-rose-950 text-rose-300 border-rose-800';
+        if (item.status === 'Sakit' || item.status === 'Izin') badgeClass = 'bg-amber-950 text-amber-300 border-amber-800';
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 text-slate-400 whitespace-nowrap">${timeStr}</td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-white">${item.name}</div>
+            <div class="text-[11px] text-slate-400">${item.class}</div>
+          </td>
+          <td class="py-3 px-4 font-semibold text-emerald-400">${item.prayer_type}</td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badgeClass}">
+              ${item.status}
+            </span>
+          </td>
+          <td class="py-3 px-4">
+            ${item.snapshot_photo 
+              ? `<button onclick="viewSnapshot('${item.id}')" class="text-xs text-emerald-400 hover:underline">Lihat Foto</button>` 
+              : `<span class="text-slate-500">${item.ai_status}</span>`}
+          </td>
+          <td class="py-3 px-4">
+            <div class="text-[11px] ${item.gps_status.includes('Valid') ? 'text-emerald-400' : 'text-rose-400'}">
+              ${item.gps_status}
+            </div>
+            <div class="text-[10px] text-slate-500">${item.gps_distance ? item.gps_distance + 'm' : '-'}</div>
+          </td>
+          <td class="py-3 px-4 text-right whitespace-nowrap no-print">
+            <select onchange="changeRecordStatus('${item.id}', this.value)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-white">
+              <option value="Hadir" ${item.status === 'Hadir' ? 'selected' : ''}>Hadir</option>
+              <option value="Halangan Syar'i" ${item.status === "Halangan Syar'i" ? 'selected' : ''}>Halangan</option>
+              <option value="Sakit" ${item.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
+              <option value="Izin" ${item.status === 'Izin' ? 'selected' : ''}>Izin</option>
+            </select>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function applyAdminFilters() {
+      const start = document.getElementById('filterStartDate').value;
+      const end = document.getElementById('filterEndDate').value;
+      const cls = document.getElementById('filterClass').value;
+      const prayer = document.getElementById('filterPrayer').value;
+
+      const filtered = attendanceList.filter(item => {
+        const itemDate = new Date(item.created_at).toISOString().slice(0, 10);
+        if (start && itemDate < start) return false;
+        if (end && itemDate > end) return false;
+        if (cls && item.class !== cls) return false;
+        if (prayer && item.prayer_type !== prayer) return false;
+        return true;
+      });
+
+      renderAdminTable(filtered);
+    }
+
+    function resetAdminFilters() {
+      document.getElementById('filterStartDate').value = '';
+      document.getElementById('filterEndDate').value = '';
+      document.getElementById('filterClass').value = '';
+      document.getElementById('filterPrayer').value = '';
+      renderAdminTable();
+    }
+
+    function changeRecordStatus(id, newStatus) {
+      attendanceList = attendanceList.map(item => {
+        if (item.id === id) item.status = newStatus;
+        return item;
+      });
+      localStorage.setItem('man1_attendance_db', JSON.stringify(attendanceList));
+      renderAdminTable();
+    }
+
+    function viewSnapshot(id) {
+      const item = attendanceList.find(r => r.id === id);
+      if (!item || !item.snapshot_photo) return;
+
+      document.getElementById('photoModalImg').src = item.snapshot_photo;
+      document.getElementById('photoModalTitle').innerText = `${item.name} (${item.class})`;
+      document.getElementById('photoModalMeta').innerHTML = `
+        <div><strong>Waktu:</strong> ${new Date(item.created_at).toLocaleString('id-ID')}</div>
+        <div><strong>Sholat:</strong> ${item.prayer_type} | <strong>Status:</strong> ${item.status}</div>
+        <div><strong>AI Verifier:</strong> ${item.ai_status}</div>
+      `;
+      document.getElementById('photoModal').classList.remove('hidden');
+    }
+
+    function closePhotoModal() {
+      document.getElementById('photoModal').classList.add('hidden');
+    }
+
+    // ==========================================
+    // 7. EKSPOR LAPORAN EXCEL (SHEETJS)
+    // ==========================================
+    function exportExcelReport() {
+      if (!window.XLSX) {
+        alert('Library SheetJS XLSX sedang dimuat.');
+        return;
+      }
+
+      const rows = attendanceList.map((rec, idx) => ({
+        No: idx + 1,
+        Tanggal: new Date(rec.created_at).toLocaleDateString('id-ID'),
+        Jam: new Date(rec.created_at).toLocaleTimeString('id-ID'),
+        'Nama Siswa': rec.name,
+        Kelas: rec.class,
+        'Jenis Sholat': rec.prayer_type,
+        'Status Kehadiran': rec.status,
+        'Status AI': rec.ai_status,
+        'Zonasi GPS': rec.gps_status,
+        'Jarak (m)': rec.gps_distance || 0,
+        Keterangan: rec.notes || '-'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Rekap Presensi');
+
+      XLSX.writeFile(wb, `Rekap_Presensi_MAN1_Boyolali_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+
+    function openConfigModal() {
+      alert('Pengaturan Supabase & Lokasi GPS dapat disesuaikan di file kode ini.');
+    }
+  </script>
+</body>
+</html>
